@@ -1,0 +1,22 @@
+{
+  "name": "Troll",
+  "cr": 5,
+  "hp": 63,
+  "ac": 16,
+  "attack_bonus": 9,
+  "attacks": [
+    {"name": "Claw", "damage": "2d6+7"},
+    {"name": "Claw", "damage": "2d6+7"}
+  ],
+  "attacks_per_round": 2,
+  "initiative": 2,
+  "saves": {
+    "fort": 8,
+    "ref": 3,
+    "will": 3
+  },
+  "special": {
+    "regeneration": 5
+  },
+  "tags": ["brute", "melee"]
+}

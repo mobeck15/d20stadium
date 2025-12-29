@@ -1,0 +1,21 @@
+{
+  "name": "Dire Wolf",
+  "cr": 3,
+  "hp": 45,
+  "ac": 14,
+  "attack_bonus": 11,
+  "attacks": [
+    {"name": "Bite", "damage": "1d8+10"}
+  ],
+  "attacks_per_round": 1,
+  "initiative": 2,
+  "saves": {
+    "fort": 8,
+    "ref": 7,
+    "will": 6
+  },
+  "special": {
+    "trip": true
+  },
+  "tags": ["brute", "melee"]
+}

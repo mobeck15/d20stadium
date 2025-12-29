@@ -1,0 +1,24 @@
+{
+  "name": "Ghast",
+  "cr": 3,
+  "hp": 29,
+  "ac": 17,
+  "attack_bonus": 5,
+  "attacks": [
+    {"name": "Bite", "damage": "1d8+3", "bonus": 5},
+    {"name": "Claw", "damage": "1d4+1", "bonus": 3},
+    {"name": "Claw", "damage": "1d4+1", "bonus": 3}
+  ],
+  "attacks_per_round": 3,
+  "initiative": 3,
+  "saves": {
+    "fort": 1,
+    "ref": 4,
+    "will": 6
+  },
+  "special": {
+    "paralysis": true,
+    "stench": true
+  },
+  "tags": ["brute", "melee"]
+}

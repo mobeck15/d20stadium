@@ -1,0 +1,19 @@
+{
+  "name": "Ogre",
+  "cr": 3,
+  "hp": 30,
+  "ac": 16,
+  "attack_bonus": 8,
+  "attacks": [
+    {"name": "Greatclub", "damage": "2d8+7"}
+  ],
+  "attacks_per_round": 1,
+  "initiative": -1,
+  "saves": {
+    "fort": 6,
+    "ref": 0,
+    "will": 1
+  },
+  "special": {},
+  "tags": ["brute", "melee"]
+}
