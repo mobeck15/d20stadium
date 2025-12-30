@@ -228,17 +228,17 @@ export function rollInitiativeOrder(combatState: CombatState): FighterWithState[
 /**
  * Executes a single round of combat
  */
-export function executeRound(combatState: CombatState): boolean {
+export function executeRound(combatState: CombatState, turnOrder?: FighterWithState[]): boolean {
   if (combatState.debug) {
     console.log(`\n== Round ${combatState.round} ==`);
     logTeamStatus(combatState);
   }
 
   // Get turn order for this round
-  const turnOrder = rollInitiativeOrder(combatState);
+  const fighters = turnOrder ?? rollInitiativeOrder(combatState);
 
   // Each fighter takes their turn
-  for (const attacker of turnOrder) {
+  for (const attacker of fighters) {
     // Check if attacker is still alive
     if (attacker.state.hp <= 0) continue;
 
@@ -364,9 +364,12 @@ export function teamFight(
     });
   });
 
+  // Roll initiative once at the start (like old system)
+  const turnOrder = rollInitiativeOrder(combatState);
+
   // Execute rounds until one team is defeated
   while (isTeamAlive(team0) && isTeamAlive(team1)) {
-    const shouldContinue = executeRound(combatState);
+    const shouldContinue = executeRound(combatState, turnOrder); // Pass turnOrder
     if (!shouldContinue) break;
   }
 

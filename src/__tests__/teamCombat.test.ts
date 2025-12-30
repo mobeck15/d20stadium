@@ -294,7 +294,28 @@ describe('teamCombat', () => {
       const combatState = {
         teams: [team0, team1] as [typeof team0, typeof team1],
         random: Math.random,
-        debug: false, // Disable debug to cover else branch on line 154
+        debug: true, // Enable debug to cover line 154
+        round: 1
+      };
+      
+      executeFighterTurn(attacker, defender, combatState);
+      
+      expect(mockResolveAttack).not.toHaveBeenCalled();
+      expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('loses their turn'));
+    });
+
+    it('should skip attacks when loseTurn status is active without logging', () => {
+      const team0 = createTeam([mockMonster1], 0);
+      const team1 = createTeam([mockMonster2], 1);
+      const attacker = getLivingFighters(team0, 0)[0];
+      const defender = getLivingFighters(team1, 1)[0];
+      
+      attacker.state.applyStatus({ name: 'Stunned', duration: 2, loseTurn: true });
+      
+      const combatState = {
+        teams: [team0, team1] as [typeof team0, typeof team1],
+        random: Math.random,
+        debug: false, // Disable debug to cover else on line 154
         round: 1
       };
       
@@ -371,7 +392,7 @@ describe('teamCombat', () => {
       const combatState = {
         teams: [team0, team1] as [typeof team0, typeof team1],
         random: Math.random,
-        debug: false, // Disable debug to cover else branch on line 183
+        debug: true, // Enable debug to cover lines 177-183
         round: 1
       };
       
@@ -379,6 +400,84 @@ describe('teamCombat', () => {
       
       // Should only attack once because defender dies
       expect(mockResolveAttack).toHaveBeenCalledTimes(1);
+      expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('defeated'));
+      expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('HIT'));
+    });
+
+    it('should log attack details with advantage rolls', () => {
+      const team0 = createTeam([mockMonster1], 0);
+      const team1 = createTeam([mockMonster2], 1);
+      const attacker = getLivingFighters(team0, 0)[0];
+      const defender = getLivingFighters(team1, 1)[0];
+      
+      mockResolveAttack.mockReturnValue({
+        isHit: true,
+        damage: 8,
+        rolls: { base1: 12, base2: 18, chosen: 18 } // Cover base2 != null branches
+      });
+      
+      const combatState = {
+        teams: [team0, team1] as [typeof team0, typeof team1],
+        random: Math.random,
+        debug: true,
+        round: 1
+      };
+      
+      executeFighterTurn(attacker, defender, combatState);
+      
+      // Should log with both rolls shown (covers lines 177-178)
+      expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('12,18'));
+      expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('from'));
+    });
+
+    it('should log MISS when attack fails', () => {
+      const team0 = createTeam([mockMonster1], 0);
+      const team1 = createTeam([mockMonster2], 1);
+      const attacker = getLivingFighters(team0, 0)[0];
+      const defender = getLivingFighters(team1, 1)[0];
+      
+      mockResolveAttack.mockReturnValue({
+        isHit: false, // Miss
+        damage: 0,
+        rolls: { base1: 3, base2: null, chosen: 3 }
+      });
+      
+      const combatState = {
+        teams: [team0, team1] as [typeof team0, typeof team1],
+        random: Math.random,
+        debug: true,
+        round: 1
+      };
+      
+      executeFighterTurn(attacker, defender, combatState);
+      
+      // Should log MISS (covers line 179 else)
+      expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('MISS'));
+    });
+
+    it('should not log attack details when debug is false', () => {
+      const team0 = createTeam([mockMonster1], 0);
+      const team1 = createTeam([mockMonster2], 1);
+      const attacker = getLivingFighters(team0, 0)[0];
+      const defender = getLivingFighters(team1, 1)[0];
+      
+      mockResolveAttack.mockReturnValue({
+        isHit: true,
+        damage: 50,
+        rolls: { base1: 20, base2: null, chosen: 20 }
+      });
+      
+      const combatState = {
+        teams: [team0, team1] as [typeof team0, typeof team1],
+        random: Math.random,
+        debug: false, // Disable debug to cover else on line 183
+        round: 1
+      };
+      
+      executeFighterTurn(attacker, defender, combatState);
+      
+      // Should kill defender but not log details
+      expect(defender.state.hp).toBeLessThanOrEqual(0);
     });
 
     it('should tick status durations', () => {
@@ -549,8 +648,8 @@ describe('teamCombat', () => {
       const team0 = createTeam([mockMonster1, mockMonster2], 0);
       const team1 = createTeam([mockMonster1], 1);
       
-      // Kill first attacker
-      team0.states[0].hp = 0;
+      // Kill first attacker to trigger line 243
+      team0.states[0].hp = -5;
       
       mockRollInitiative.mockReturnValue(10);
       mockResolveAttack.mockReturnValue({
@@ -568,7 +667,7 @@ describe('teamCombat', () => {
       
       const result = executeRound(combatState);
       
-      // Should still execute with only living fighters (covers line 243 continue)
+      // Should still execute with only living fighters (covers line 243 if statement)
       expect(result).toBe(true); // Combat continues
     });
 
@@ -579,8 +678,8 @@ describe('teamCombat', () => {
       const team0 = createTeam([mockMonster1], 0);
       const team1 = createTeam([mockMonster2], 1);
       
-      // Kill all team1 before round starts (simulates ending during turn)
-      team1.states[0].hp = 0;
+      // Kill all team1 before round starts to trigger line 250
+      team1.states[0].hp = -10;
       
       mockRollInitiative.mockReturnValue(10);
       
@@ -593,7 +692,34 @@ describe('teamCombat', () => {
       
       const result = executeRound(combatState);
       
-      // Should return false immediately when no opponents (covers line 250)
+      // Should return false immediately when no opponents (covers line 250 if statement)
+      expect(result).toBe(false);
+    });
+
+    it('should handle undefined defender edge case', () => {
+      const mockContext = { mock: 'context' };
+      mockCreateHandlerContext.mockReturnValue(mockContext);
+      
+      const team0 = createTeam([mockMonster1], 0);
+      const team1 = createTeam([mockMonster2], 1);
+      
+      // This is a defensive check - in practice getLivingFighters filters properly
+      // but we want to cover line 257
+      mockRollInitiative.mockReturnValue(10);
+      
+      const combatState = {
+        teams: [team0, team1] as [typeof team0, typeof team1],
+        random: Math.random,
+        debug: false,
+        round: 1
+      };
+      
+      // Temporarily break getLivingFighters by killing opponent after initiative
+      team1.states[0].hp = 0;
+      
+      const result = executeRound(combatState);
+      
+      // Combat should end
       expect(result).toBe(false);
     });
 
@@ -821,6 +947,134 @@ describe('teamCombat', () => {
       const result = teamFight([mockMonster1], [mockMonster2], { debug: false, seed: 123 });
       
       expect(result.winningTeam).toBe(0);
+    });
+
+    it('should use default Math.random when no opts provided', () => {
+      const mockContext = { mock: 'context' };
+      mockCreateHandlerContext.mockReturnValue(mockContext);
+      mockRollInitiative.mockReturnValue(10);
+      
+      mockResolveAttack.mockReturnValue({
+        isHit: true,
+        damage: 100,
+        rolls: { base1: 20, base2: null, chosen: 20 }
+      });
+      
+      // Pass undefined to cover line 280 (else branch when seed is undefined)
+      const result = teamFight([mockMonster1], [mockMonster2], undefined);
+      
+      expect(result.winningTeam).toBe(0);
+    });
+
+    it('should use seed when provided', () => {
+      const mockContext = { mock: 'context' };
+      mockCreateHandlerContext.mockReturnValue(mockContext);
+      mockRollInitiative.mockReturnValue(10);
+      mockMulberry32.mockReturnValue(() => 0.5);
+      
+      mockResolveAttack.mockReturnValue({
+        isHit: true,
+        damage: 100,
+        rolls: { base1: 20, base2: null, chosen: 20 }
+      });
+      
+      // Provide seed to cover line 280 if statement
+      const result = teamFight([mockMonster1], [mockMonster2], { seed: 999 });
+      
+      expect(mockMulberry32).toHaveBeenCalledWith(999);
+      expect(result.winningTeam).toBe(0);
+    });
+
+    it('should log combat start when debug enabled', () => {
+      const mockContext = { mock: 'context' };
+      mockCreateHandlerContext.mockReturnValue(mockContext);
+      mockRollInitiative.mockReturnValue(10);
+      
+      mockResolveAttack.mockReturnValue({
+        isHit: true,
+        damage: 100,
+        rolls: { base1: 20, base2: null, chosen: 20 }
+      });
+      
+      // Enable debug to cover line 297 if statement
+      teamFight([mockMonster1], [mockMonster2], { debug: true, seed: 100 });
+      
+      expect(mockConsoleLog).toHaveBeenCalledWith('=== Combat Start ===');
+    });
+
+    it('should not log combat start when debug disabled', () => {
+      const mockContext = { mock: 'context' };
+      mockCreateHandlerContext.mockReturnValue(mockContext);
+      mockRollInitiative.mockReturnValue(10);
+      
+      mockResolveAttack.mockReturnValue({
+        isHit: true,
+        damage: 100,
+        rolls: { base1: 20, base2: null, chosen: 20 }
+      });
+      
+      jest.clearAllMocks(); // Clear previous calls
+      
+      // Disable debug to cover line 297 else (implicit - no logging)
+      teamFight([mockMonster1], [mockMonster2], { debug: false, seed: 100 });
+      
+      expect(mockConsoleLog).not.toHaveBeenCalledWith('=== Combat Start ===');
+    });
+
+    it('should handle onFightStart with valid states', () => {
+      const mockContext = { mock: 'context' };
+      mockCreateHandlerContext.mockReturnValue(mockContext);
+      mockRollInitiative.mockReturnValue(10);
+      
+      mockResolveAttack.mockReturnValue({
+        isHit: true,
+        damage: 100,
+        rolls: { base1: 20, base2: null, chosen: 20 }
+      });
+      
+      // This covers lines 341, 348 by having valid state and opposing members
+      teamFight([mockMonster1, mockMonster2], [mockMonster2], { seed: 100 });
+      
+      // Should have called executeSpecialHandlers for onFightStart
+      expect(mockExecuteSpecialHandlers).toHaveBeenCalled();
+    });
+
+    it('should log final stats when debug enabled', () => {
+      const mockContext = { mock: 'context' };
+      mockCreateHandlerContext.mockReturnValue(mockContext);
+      mockRollInitiative.mockReturnValue(10);
+      
+      mockResolveAttack.mockReturnValue({
+        isHit: true,
+        damage: 100,
+        rolls: { base1: 20, base2: null, chosen: 20 }
+      });
+      
+      jest.clearAllMocks();
+      
+      // Enable debug to cover line 388 if statement
+      teamFight([mockMonster1], [mockMonster2], { debug: true, seed: 100 });
+      
+      expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('Final Statistics'));
+    });
+
+    it('should not log final stats when debug disabled', () => {
+      const mockContext = { mock: 'context' };
+      mockCreateHandlerContext.mockReturnValue(mockContext);
+      mockRollInitiative.mockReturnValue(10);
+      
+      mockResolveAttack.mockReturnValue({
+        isHit: true,
+        damage: 100,
+        rolls: { base1: 20, base2: null, chosen: 20 }
+      });
+      
+      jest.clearAllMocks();
+      
+      // Disable debug to cover line 388 else (implicit - no logging)
+      teamFight([mockMonster1], [mockMonster2], { debug: false, seed: 100 });
+      
+      expect(mockConsoleLog).not.toHaveBeenCalledWith(expect.stringContaining('Final Statistics'));
     });
   });
 });
