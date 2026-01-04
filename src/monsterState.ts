@@ -8,6 +8,8 @@ export class MonsterState {
   statuses: StatusEffect[] = [];
   damageDealt: number = 0;
   statusTotals: Map<string, number> = new Map();
+  lastTarget?: { teamIndex: number; memberIndex: number; };
+  damageReceivedFrom: Map<string, number> = new Map();
 
   constructor(monster: Monster) {
     this.monster = monster;

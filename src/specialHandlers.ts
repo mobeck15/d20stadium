@@ -51,7 +51,7 @@ export function applyStatusByName(
   const effect: StatusEffect = { name, duration, ...extra };
   targetState.applyStatus(effect);
   const targetName = target === 'attacker' ? ctx.attackerLabel : ctx.defenderLabel;
-  return `${targetName} gains status: ${name} (${duration} rounds)`;
+  return `   ${targetName} gains status: ${name} (${duration} rounds)`;
 }
 
 export const specialHandlers: Record<
@@ -90,7 +90,7 @@ export const specialHandlers: Record<
         result = `PASS`;
       }
       if (ctx.debug) {
-        console.log(`${ctx.attackerLabel} trips ${ctx.defenderLabel} - ${ctx.defenderLabel} fort save roll ${roll} vs DC ${dc} ${result}`);
+        console.log(`   ${ctx.attackerLabel} trips ${ctx.defenderLabel} - ${ctx.defenderLabel} fort save roll ${roll} vs DC ${dc} ${result}`);
         if (logText) console.log(logText);
       }
     },
@@ -110,7 +110,7 @@ export const specialHandlers: Record<
       }
 
       if (ctx.debug) {
-        console.log(`${ctx.attackerLabel} paralyze on hit - ${ctx.defenderLabel} fort save roll ${roll} vs DC ${dc} ${result}`);
+        console.log(`   ${ctx.attackerLabel} paralyze on hit - ${ctx.defenderLabel} fort save roll ${roll} vs DC ${dc} ${result}`);
         if (logText) console.log(logText);
       }
     },

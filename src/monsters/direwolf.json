@@ -17,5 +17,6 @@
   "special": {
     "trip": true
   },
+  "targeting_strategy": "lowestHp",
   "tags": ["brute", "melee"]
 }

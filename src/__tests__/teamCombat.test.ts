@@ -648,14 +648,24 @@ describe('teamCombat', () => {
       const team0 = createTeam([mockMonster1, mockMonster2], 0);
       const team1 = createTeam([mockMonster1], 1);
       
-      // Kill first attacker to trigger line 243
-      team0.states[0].hp = -5;
+      // Keep first attacker alive initially
+      team0.states[0].hp = 10; // Alive when initiative rolls
       
       mockRollInitiative.mockReturnValue(10);
-      mockResolveAttack.mockReturnValue({
-        isHit: false,
-        damage: 0,
-        rolls: { base1: 5, base2: null, chosen: 5 }
+      
+      // Mock executeFighterTurn to kill the first attacker during combat
+      let turnCount = 0;
+      mockResolveAttack.mockImplementation(() => {
+        turnCount++;
+        if (turnCount === 1) {
+          // After first fighter's turn, kill them for the next iteration
+          team0.states[0].hp = -5;
+        }
+        return {
+          isHit: false,
+          damage: 0,
+          rolls: { base1: 5, base2: null, chosen: 5 }
+        };
       });
       
       const combatState = {
@@ -667,8 +677,8 @@ describe('teamCombat', () => {
       
       const result = executeRound(combatState);
       
-      // Should still execute with only living fighters (covers line 243 if statement)
-      expect(result).toBe(true); // Combat continues
+      // Should skip the dead fighter on their second turn in the order
+      expect(result).toBe(true);
     });
 
     it('should end combat when no opponents remain', () => {

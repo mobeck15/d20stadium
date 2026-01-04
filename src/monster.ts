@@ -1,3 +1,5 @@
+import type { TargetingStrategy } from "./targetingStrategy.js";
+
 export type Specials = {
   regeneration?: number;
   [key: string]: unknown;
@@ -19,4 +21,5 @@ export interface Monster {
   };
   special?: Specials;
   tags: string[];
+  targeting_strategy?: TargetingStrategy;
 }

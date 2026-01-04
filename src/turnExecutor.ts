@@ -3,21 +3,6 @@ import type MonsterState from "./monsterState.js";
 import specialHandlers from "./specialHandlers.js";
 import type { HandlerContext } from "./specialHandlers.js";
 
-// export function executeTurn(
-//   attacker: Monster,
-//   defender: Monster,
-//   attackerState: MonsterState,
-//   defenderState: MonsterState,
-//   a: Monster,
-//   b: Monster,
-//   stateA: MonsterState,
-//   stateB: MonsterState,
-//   random: () => number,
-//   debug: boolean
-// ): void {
-//   // This would contain the doTurn logic but it may be too complex. Return to later.
-// }
-
 export function executeSpecialHandlers(
   monster: Monster,
   handlerType: 'onFightStart' | 'onTurnStart' | 'onTurnEnd' | 'onOpponentTurnStart' | 'onHit',

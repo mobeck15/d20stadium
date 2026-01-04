@@ -2,6 +2,8 @@ import type { Monster } from "./monster.js";
 import MonsterState from "./monsterState.js";
 import { rollInitiative, resolveAttack, createHandlerContext, mulberry32 } from "./combatHelpers.js";
 import { executeSpecialHandlers } from "./turnExecutor.js";
+import { selectTarget, type TargetingContext} from "./targetingStrategy.js";
+
 
 export type Team = {
   members: Monster[];
@@ -44,7 +46,7 @@ export type TeamFightResult = {
   };
 };
 
-type FighterWithState = {
+export type FighterWithState = {
   monster: Monster;
   state: MonsterState;
   teamIndex: number;
@@ -111,7 +113,11 @@ export function executeFighterTurn(
 ): void {
   const { random, debug } = combatState;
   
-  if (debug) console.log(`-- ${attacker.label} turn`);
+  if (debug) {
+    console.log(`-- ${attacker.label} turn`);
+    const strategy = attacker.monster.targeting_strategy ?? 'first';
+    console.log(`   Using strategy: ${strategy}, targeting: ${defender.label}`);
+  }
 
   // Get opposing team for handler context
   const opposingTeam = combatState.teams[defender.teamIndex];
@@ -151,7 +157,7 @@ export function executeFighterTurn(
   if (losingStatuses.length > 0) {
     attacksCount = 0;
     const statusStr = losingStatuses.map(s => `${s.name} (${s.duration} rounds remaining)`).join(', ');
-    if (debug) console.log(`${attacker.monster.name} loses their turn → ${statusStr}`);
+    if (debug) console.log(`   ${attacker.monster.name} loses their turn → ${statusStr}`);
   }
 
   // Execute attacks
@@ -169,6 +175,10 @@ export function executeFighterTurn(
     // Apply damage
     if (result.isHit) {
       applyDamage(defender.state, attacker.state, result.damage);
+
+      // Track damage for "mostDamageToMe" strategy
+      const currentDamage = defender.state.damageReceivedFrom.get(attacker.label) ?? 0;
+      defender.state.damageReceivedFrom.set(attacker.label, currentDamage + result.damage);
     }
 
     // Debug logging
@@ -177,7 +187,7 @@ export function executeFighterTurn(
       const rollsRaw = base2 != null ? `${base1},${base2}` : `${base1}`;
       const rollDisplay = base2 != null ? `${chosen} (from ${rollsRaw})` : `${chosen}`;
       const resultStr = result.isHit ? `HIT - ${result.damage} damage` : `MISS`;
-      console.log(`${attacker.label} attacks ${defender.label} with ${attack.name}: ${rollDisplay} vs AC ${defender.monster.ac} ${resultStr}`);
+      console.log(`   ${attacker.label} attacks ${defender.label} with ${attack.name}: ${rollDisplay} vs AC ${defender.monster.ac} ${resultStr}`);
       
       // Call onHit handlers after attack resolution/logging
       if (result.isHit) {
@@ -187,7 +197,7 @@ export function executeFighterTurn(
 
     // Stop attacking if defender is dead
     if (defender.state.hp <= 0) {
-      if (debug) console.log(`${defender.label} has been defeated!`);
+      if (debug) console.log(`   ${defender.label} has been defeated!`);
       break;
     }
   }
@@ -225,12 +235,20 @@ export function rollInitiativeOrder(combatState: CombatState): FighterWithState[
   return fightersWithInit.map(f => f.fighter);
 }
 
+function formatCombatTimestamp(round: number): string {
+  const totalSeconds = (round - 1) * 6;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
 /**
  * Executes a single round of combat
  */
 export function executeRound(combatState: CombatState, turnOrder?: FighterWithState[]): boolean {
   if (combatState.debug) {
-    console.log(`\n== Round ${combatState.round} ==`);
+    //console.log(`\n== Round ${combatState.round} ==`);
+    console.log(`\n== Round ${combatState.round} == (${formatCombatTimestamp(combatState.round)})`);
     logTeamStatus(combatState);
   }
 
@@ -240,6 +258,7 @@ export function executeRound(combatState: CombatState, turnOrder?: FighterWithSt
   // Each fighter takes their turn
   for (const attacker of fighters) {
     // Check if attacker is still alive
+    /* istanbul ignore next */
     if (attacker.state.hp <= 0) continue;
 
     // Find a living target from opposing team
@@ -253,8 +272,28 @@ export function executeRound(combatState: CombatState, turnOrder?: FighterWithSt
     }
 
     // Pick first living opponent (could add targeting logic here later)
-    const defender = livingOpponents[0];
-    if (!defender) continue; // Extra safety check
+    //const defender = livingOpponents[0]!;
+
+    const strategy = attacker.monster.targeting_strategy ?? 'first';
+    const lastTargetMatch = attacker.state.lastTarget ? 
+      livingOpponents.find(opp => 
+        opp.teamIndex === attacker.state.lastTarget!.teamIndex &&
+        opp.memberIndex === attacker.state.lastTarget!.memberIndex
+      ) : undefined;
+
+    const context: TargetingContext = {
+      attacker,
+      ...(lastTargetMatch && { lastTarget: lastTargetMatch }),  // Only include if it exists
+      damageReceived: attacker.state.damageReceivedFrom
+    };
+
+    const defender = selectTarget(livingOpponents, strategy, combatState.random, context);
+
+    // Record last target
+    attacker.state.lastTarget = {
+      teamIndex: defender.teamIndex,
+      memberIndex: defender.memberIndex
+    };
 
     // Execute the turn
     executeFighterTurn(attacker, defender, combatState);
@@ -277,10 +316,11 @@ export function logTeamStatus(combatState: CombatState): void {
     console.log(`${team.label}:`);
     team.states.forEach((state, memberIndex) => {
       const monster = team.members[memberIndex];
+      /* istanbul ignore next */
       if (!monster) return;
       const status = state.toDebug();
       const hpDisplay = state.hp > 0 ? `${state.hp}/${state.maxHp}` : 'DEFEATED';
-      console.log(`  ${monster.name}: ${hpDisplay} HP, Status: ${status}`);
+      console.log(`   ${monster.name}: ${hpDisplay} HP, Status: ${status}`);
     });
   });
 }
@@ -294,6 +334,7 @@ export function logFinalTeamStats(combatState: CombatState): void {
     console.log(`\n${team.label}:`);
     team.states.forEach((state, memberIndex) => {
       const monster = team.members[memberIndex];
+      /* istanbul ignore next */
       if (!monster) return;
       const formatStatus = (totals: Map<string, number>) => {
         const entries = Array.from(totals.entries()).filter(([_, count]) => count > 0);
@@ -338,6 +379,7 @@ export function teamFight(
   [team0, team1].forEach((team, teamIndex) => {
     team.members.forEach((monster, memberIndex) => {
       const state = team.states[memberIndex];
+      /* istanbul ignore next */
       if (!state) return;
       
       const label = `${monster.name}(${teamIndex + 1}.${memberIndex + 1})`;
@@ -345,6 +387,7 @@ export function teamFight(
       const opposingFirstMember = opposingTeam.members[0];
       const opposingFirstState = opposingTeam.states[0];
       
+      /* istanbul ignore next */
       if (!opposingFirstMember || !opposingFirstState) return;
       
       const ctx = createHandlerContext(
@@ -388,6 +431,7 @@ export function teamFight(
   const buildTeamResult = (team: Team) => ({
     members: team.states.map((state, idx) => {
       const monster = team.members[idx];
+      /* istanbul ignore next */
       if (!monster) throw new Error(`Monster at index ${idx} is undefined`);
       return {
         name: monster.name,

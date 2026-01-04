@@ -96,6 +96,11 @@ Simulation mode:
 node dist/arena.js src/monsters/ghast.json src/monsters/ogre.json --simulations 1000
 ```
 
+multiple Fighters:
+```bash
+ node dist/teamArena.js src/monsters/direwolf.json,src/monsters/direwolf.json src/monsters/ogre.json,src/monsters/ogre.json --seed=12345 --debug
+```
+
 ## Design Philosophy
 
 - **Composition over inheritance**

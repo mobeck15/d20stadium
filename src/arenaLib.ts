@@ -103,8 +103,10 @@ export function formatResults(
 export function loadMonster(file: string): Monster {
   const fullPath = path.resolve(file);
   try {
-    const content = fs.readFileSync(fullPath, "utf8");
-    return JSON.parse(content);
+  const content = fs.readFileSync(fullPath, "utf8");
+      const monster = JSON.parse(content);
+      console.log(`Loaded ${monster.name} with targeting_strategy: ${monster.targeting_strategy}`);
+      return monster;
   } catch (error) {
     throw new Error(`Failed to load monster from ${file}: ${error}`);
   }
